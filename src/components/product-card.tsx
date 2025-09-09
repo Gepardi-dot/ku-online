@@ -76,7 +76,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           <div className="flex items-center gap-2 mt-2 pt-2 border-t">
             <Avatar className="h-6 w-6">
               <AvatarImage src={product.seller.avatarUrl} alt={product.seller.name} />
-              <AvatarFallback>{product.seller.name.charAt(0)}</Fallback>
+              <AvatarFallback>{product.seller.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
                 <p className="text-xs text-muted-foreground truncate">{product.seller.name}</p>
