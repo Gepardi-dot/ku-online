@@ -12,11 +12,11 @@ interface SimilarItemsProps {
 }
 
 const placeholderProducts: Product[] = [
-    { id: '1', name: 'Vintage Leather Jacket', price: 150000, currency: 'IQD', seller: { name: 'Erbil Classic Wears', avatarUrl: 'https://picsum.photos/seed/seller1/40/40', rating: 4.8 }, category: 'Fashion', condition: 'Used - Good', imageUrl: 'https://picsum.photos/seed/jacket/400/300', imageHint: 'leather jacket', location: 'Erbil', createdAt: new Date().toISOString() },
-    { id: '2', name: 'Modern Bookshelf', price: 90000, currency: 'IQD', seller: { name: 'Suli Home Goods', avatarUrl: 'https://picsum.photos/seed/seller2/40/40', rating: 4.6 }, category: 'Home & Garden', condition: 'New', imageUrl: 'https://picsum.photos/seed/bookshelf/400/300', imageHint: 'modern bookshelf', location: 'Sulaymaniyah', createdAt: new Date().toISOString() },
-    { id: '3', name: 'Gaming Mouse', price: 75000, currency: 'IQD', seller: { name: 'Duhok Electronics', avatarUrl: 'https://picsum.photos/seed/seller3/40/40', rating: 4.9 }, category: 'Electronics', condition: 'New', imageUrl: 'https://picsum.photos/seed/mouse/400/300', imageHint: 'gaming mouse', location: 'Duhok', createdAt: new Date().toISOString() },
-    { id: '4', name: 'Handmade Ceramic Vase', price: 45000, currency: 'IQD', seller: { name: 'Kurdistan Crafts', avatarUrl: 'https://picsum.photos/seed/seller4/40/40', rating: 4.7 }, category: 'Home & Garden', condition: 'New', imageUrl: 'https://picsum.photos/seed/vase/400/300', imageHint: 'ceramic vase', location: 'Erbil', createdAt: new Date().toISOString() },
-    { id: '5', name: 'Professional Football', price: 35000, currency: 'IQD', seller: { name: 'Zaxo Sports', avatarUrl: 'https://picsum.photos/seed/seller5/40/40', rating: 4.5 }, category: 'Sports & Outdoors', condition: 'New', imageUrl: 'https://picsum.photos/seed/football/400/300', imageHint: 'professional football', location: 'Zaxo', createdAt: new Date().toISOString() },
+    { id: '1', name: 'Vintage Leather Jacket', price: 150000, currency: 'IQD', seller: { name: 'Erbil Classic Wears', avatarUrl: 'https://picsum.photos/seed/seller1/40/40' }, category: 'Fashion', condition: 'Used - Good', imageUrl: 'https://picsum.photos/seed/jacket/400/300', imageHint: 'leather jacket', location: 'Erbil', createdAt: new Date().toISOString() },
+    { id: '2', name: 'Modern Bookshelf', price: 90000, currency: 'IQD', seller: { name: 'Suli Home Goods', avatarUrl: 'https://picsum.photos/seed/seller2/40/40' }, category: 'Home & Garden', condition: 'New', imageUrl: 'https://picsum.photos/seed/bookshelf/400/300', imageHint: 'modern bookshelf', location: 'Sulaymaniyah', createdAt: new Date().toISOString() },
+    { id: '3', name: 'Gaming Mouse', price: 75000, currency: 'IQD', seller: { name: 'Duhok Electronics', avatarUrl: 'https://picsum.photos/seed/seller3/40/40' }, category: 'Electronics', condition: 'New', imageUrl: 'https://picsum.photos/seed/mouse/400/300', imageHint: 'gaming mouse', location: 'Duhok', createdAt: new Date().toISOString() },
+    { id: '4', name: 'Handmade Ceramic Vase', price: 45000, currency: 'IQD', seller: { name: 'Kurdistan Crafts', avatarUrl: 'https://picsum.photos/seed/seller4/40/40' }, category: 'Home & Garden', condition: 'New', imageUrl: 'https://picsum.photos/seed/vase/400/300', imageHint: 'ceramic vase', location: 'Erbil', createdAt: new Date().toISOString() },
+    { id: '5', name: 'Professional Football', price: 35000, currency: 'IQD', seller: { name: 'Zaxo Sports', avatarUrl: 'https://picsum.photos/seed/seller5/40/40' }, category: 'Sports & Outdoors', condition: 'New', imageUrl: 'https://picsum.photos/seed/football/400/300', imageHint: 'professional football', location: 'Zaxo', createdAt: new Date().toISOString() },
 ];
 
 
@@ -26,8 +26,8 @@ export default function SimilarItems({ product }: SimilarItemsProps) {
 
   useEffect(() => {
     setIsLoading(true);
-    // In a real app, you would fetch similar products from your backend.
-    // For this frontend-only starter, we will filter placeholder products from the same category.
+    // This frontend-only demo filters mock products from the same category.
+    // In a production app, you would fetch similar products from your backend API.
     const filtered = placeholderProducts.filter(p => p.category === product.category && p.id !== product.id);
     
     // Simulate network delay

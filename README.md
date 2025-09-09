@@ -1,6 +1,6 @@
-# KU-ONLINE Marketplace Starter
+# KU-ONLINE Marketplace Frontend
 
-This is a Next.js starter project for building the KU-ONLINE marketplace. It's configured with a modern frontend stack and is ready for backend integration.
+This is a Next.js frontend project for the KU-ONLINE marketplace. It features a modern UI with mock data and is designed to work with any backend service.
 
 ## Tech Stack
 
@@ -8,10 +8,13 @@ This is a Next.js starter project for building the KU-ONLINE marketplace. It's c
 - **UI Components**: ShadCN UI
 - **Styling**: Tailwind CSS
 - **Language**: TypeScript
+- **Data**: Mock data for demonstration
 
-## Backend & Deployment
+## Features
 
-This project is intended to be used with the following services:
-
--   **Backend**: [Supabase](https://supabase.com/) for database, authentication, and storage.
--   **Deployment**: [Vercel](https://vercel.com/) for hosting.
+- Modern, responsive marketplace UI
+- Product browsing and filtering
+- Category navigation
+- Mobile-friendly design
+- Dark/light theme support
+- Mock data for demonstration purposes
