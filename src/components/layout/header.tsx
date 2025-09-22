@@ -80,7 +80,7 @@ export default function AppHeader({ user }: AppHeaderProps) {
                   <MessageCircle className="h-4 w-4" />
                 </Button>
                 <Button asChild>
-                  <Link href="#">
+                  <Link href="/sell">
                     <PackagePlus className="mr-2 h-4 w-4" />
                     Create Listing
                   </Link>

@@ -10,24 +10,24 @@ import { getProducts, getCategories } from '@/lib/services/products';
 import { seedDatabase } from '@/lib/seed-data';
 
 interface SearchPageProps {
-  searchParams: {
+  searchParams: Promise<{
     category?: string;
     condition?: string;
     location?: string;
     search?: string;
-  };
+  }>;
 }
 
 async function ProductsList({ searchParams }: SearchPageProps) {
-  // Seed database if needed
-  await seedDatabase();
+  // Await searchParams for Next.js 15 compatibility
+  const params = await searchParams;
   
   const [products, categories] = await Promise.all([
     getProducts({
-      category: searchParams.category,
-      condition: searchParams.condition,
-      location: searchParams.location,
-      search: searchParams.search,
+      category: params.category,
+      condition: params.condition,
+      location: params.location,
+      search: params.search,
     }),
     getCategories(),
   ]);

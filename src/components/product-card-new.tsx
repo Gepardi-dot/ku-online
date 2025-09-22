@@ -90,8 +90,8 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
           
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{product.seller?.fullName || 'Seller'}</span>
-            <span>{product.createdAt && formatDistanceToNow(new Date(product.createdAt), { addSuffix: true })}</span>
+            <span>{product.seller?.fullName || product.seller?.name || 'Seller'}</span>
+            <span>{product.createdAt ? formatDistanceToNow(new Date(product.createdAt), { addSuffix: true }) : ''}</span>
           </div>
         </div>
       </CardContent>
