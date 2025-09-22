@@ -1,6 +1,13 @@
 import { sql } from 'drizzle-orm';
 import { pgTable, uuid, text, varchar, integer, decimal, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 
+// Type exports
+export type User = typeof users.$inferSelect;
+export type Product = typeof products.$inferSelect;
+export type Category = typeof categories.$inferSelect;
+export type Message = typeof messages.$inferSelect;
+export type Review = typeof reviews.$inferSelect;
+
 // Users table
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),

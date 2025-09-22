@@ -1,10 +1,12 @@
+'use client';
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Filter, PackagePlus } from 'lucide-react';
+import { Search, Filter, PackagePlus, Bell, MessageCircle } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import LanguageSwitcher from '../language-switcher';
+import AuthButton from '@/components/auth/auth-button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +18,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import React from 'react';
 
-export default function AppHeader() {
+interface AppHeaderProps {
+  user?: any;
+}
+
+export default function AppHeader({ user }: AppHeaderProps) {
   const [city, setCity] = React.useState("all");
 
   return (
@@ -65,14 +71,24 @@ export default function AppHeader() {
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
-             <Button asChild>
-                <Link href="#">
-                  <PackagePlus className="mr-2 h-4 w-4" />
-                  Create Listing
-                </Link>
-              </Button>
+            {user && (
+              <>
+                <Button variant="ghost" size="sm">
+                  <Bell className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
+                <Button asChild>
+                  <Link href="#">
+                    <PackagePlus className="mr-2 h-4 w-4" />
+                    Create Listing
+                  </Link>
+                </Button>
+              </>
+            )}
             <LanguageSwitcher />
-            <Button variant="outline">Log In</Button>
+            <AuthButton user={user} />
           </div>
         </div>
 
