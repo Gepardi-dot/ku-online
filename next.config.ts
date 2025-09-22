@@ -24,6 +24,29 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Configure for Replit environment
+  serverExternalPackages: ['supabase'],
+  // Allow all origins for Replit proxy environment
+  allowedDevOrigins: [
+    '*.replit.dev',
+    '*.replit.com',
+    'localhost',
+    '127.0.0.1',
+  ],
+  // Allow all hosts for Replit proxy
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
