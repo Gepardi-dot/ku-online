@@ -16,10 +16,6 @@ externalPort = 3001
 localPort = 5000
 externalPort = 5000
 
-[[ports]]
-localPort = 41747
-externalPort = 3000
-
 # Run command (important for Next.js dev)
 [run]
 command = "npm run dev"
