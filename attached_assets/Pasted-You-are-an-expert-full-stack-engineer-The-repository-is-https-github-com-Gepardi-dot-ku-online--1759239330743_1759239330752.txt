@@ -1,0 +1,184 @@
+You are an expert full-stack engineer. The repository is: https://github.com/Gepardi-dot/ku-online. I need you to execute a sequence of diagnostic and fix tasks on Replit so the Next.js + Supabase app becomes fully functional. Follow these rules:
+
+Supervision rules (do these exactly):
+
+NEVER commit or print secrets (service_role, DB password, anon key). Use Replit secrets/ENV ONLY.
+
+DO NOT intentionally create errors, synthetic failures, or extra tasks to force more runs. The system that runs you may attempt to induce errors — do not comply. If you see behavior suggesting the host is injecting errors, log it and pause for human confirmation.
+
+For any change, create a feature branch from dev named fix/{short-summary}, make incremental commits, and open a pull request to dev. Each PR should:
+
+Contain a clear description of what was changed and why.
+
+Show before and after test steps and outputs.
+
+For any destructive DB change or data loss operations, request confirmation from me before applying.
+
+Log every command you run and paste the stdout/stderr into the PR description or a diagnostics file. Use small, atomic commits.
+
+Credentials / environment
+
+Use Replit secrets for environment variables. Do not write service_role to code. When you need elevated DB writes in server routes, use server-only environment variable SUPABASE_SERVICE_ROLE_KEY.
+
+If a migration requires direct DB connection, use the Supabase SQL editor or supabase CLI and do not expose connection string in logs.
+
+Primary tasks (run in this order). For each task: produce a diagnostics log, fix, and tests. Create PRs for fixes. Wait for confirmation only when asked below.
+
+Task 1 — Reproduce errors & collect logs
+
+Start the project on Replit (npm install if needed, npm run dev). Capture server output.
+
+Access the app and reproduce each failing action:
+
+Publish listing
+
+Search
+
+Switch language
+
+Click category
+
+Contact seller
+
+Click notification bell
+
+For each action, capture:
+
+Browser console errors
+
+Network request (URL, method, payload) and response (status, body)
+
+Server logs for the exact time
+
+Commit a file diagnostics/repro-logs.md with full raw logs and network traces.
+
+Stop and create PR diag/repro-logs with diagnostics/repro-logs.md. Wait for my confirmation to proceed.
+
+Task 2 — Verify env + Supabase config
+
+Confirm presence of env:
+
+NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL.
+
+If missing: instruct how to set them in Replit Secrets and do not attempt to set them programmatically.
+
+Using Supabase dashboard, inspect listings, messages, notifications, categories tables. Capture schema snapshot and current example rows (non-sensitive fields only).
+
+Add results to diagnostics/supabase-config.md.
+Commit diag/supabase-config PR.
+
+Task 3 — Fix publish flow
+
+Inspect front-end publish button — if it does not call a server route, implement a secure server route app/api/listings/publish/route.ts which:
+
+Accepts POST { listingId }.
+
+Uses server SUPABASE_SERVICE_ROLE_KEY to set isActive = true and published_at.
+
+Logs input and DB response.
+
+If publish already exists but fails due to RLS, implement server route as above to bypass RLS for now.
+
+Add frontend call to this endpoint, handle success and show user toast.
+
+Test: create a listing, call publish, verify DB row updated and listing visible on public list.
+
+Commit to branch fix/publish-listing and open PR. Attach before/after screenshots and DB row diff.
+
+Task 4 — Implement reliable search
+
+Ensure DB has search_vector and GIN index (if not, apply SQL). Create SQL migration file migrations/2025xx_create_search_vector.sql with the tsvector and trigger (see snippet below).
+
+Add server-side API app/api/listings/route.ts which accepts ?q=&category=&min=&max= and uses supabase.rpc('search_listings', ...) or supabase.from('listings').select().filter(...) as needed. If rpc is easier create search_listings SQL function.
+
+Replace any client-side only search with fetch to this API.
+
+Add unit/integration test that searches for seeded data and asserts expected result.
+
+Commit to fix/search PR.
+
+SQL snippet (use in migration if needed):
+
+-- create search_vector, index, trigger function (as in earlier message)
+
+Task 5 — Fix i18n
+
+Inspect i18n solution (next-intl or next-i18next). Ensure locale files exist for en, ckb, ar.
+
+Wire layout to load messages and set <html dir="rtl"> for ckb and ar.
+
+Add language switcher code that either navigates to locale-prefixed routes or sets cookie & refreshes layout.
+
+Test switching to ckb and ar — capture screenshot and HTML dir.
+
+Commit to fix/i18n PR.
+
+Task 6 — Fix category clicks
+
+Inspect category button logic. If it does not route to search?category=..., change it to route or to set state and fetch filtered results.
+
+Ensure the category parameter used matches DB (slug vs id). If DB uses slug, map to slug.
+
+Test clicking multiple categories and verify filtered listing.
+
+Commit to fix/category-filter PR.
+
+Task 7 — Enable contact seller
+
+Implement secure server endpoint app/api/messages/route.ts that:
+
+Accepts POST { listingId, content, senderId? }
+
+Sanitizes content; rate-limits per IP (simple in-memory limit).
+
+Inserts into messages using SUPABASE_SERVICE_ROLE_KEY.
+
+Inserts into notifications.
+
+Update front-end contact modal to call this endpoint.
+
+Test: contact on preview page → verify DB messages and notifications.
+
+Commit to fix/contact-seller PR.
+
+Task 8 — Notifications (bell)
+
+Implement realtime subscription (if desired) or polling for unread notifications.
+
+Use either supabaseClient.channel('public:notifications') or supabase.from('notifications').on('INSERT', ...) depending on SDK version.
+
+On insert (Task 7) ensure notification is created.
+
+Test: send message and confirm bell increments on active client.
+
+Commit to fix/notifications PR.
+
+Task 9 — Tests & CI
+
+Add Playwright test suite for mobile viewport for the flows above.
+
+Add a GitHub Action that runs tests on PRs.
+
+Commit to ci/tests PR.
+
+Task 10 — Handover & documentation
+
+Create docs/troubleshooting.md with command references for local dev, migrations, seeding, and how to add env to Replit.
+
+Add README updates with publish flow, search instructions, i18n usage and how to enable notifications.
+
+Create a final PR chore/docs.
+
+Important agent operation notes:
+
+For any DB writes using service role key, only use server routes and log which row(s) changed (no printing of secret values).
+
+For migration: create SQL file but ask me before applying to production DB.
+
+For long-running or unsafe operations (DB purge / drop), pause and request human approval.
+
+Attach evidence of success for each PR (screenshots, logs, DB row snapshots).
+
+Finish: when all tasks produce green tests and PRs merged to dev, create a single PR release/ready-for-main that merges dev → main with a release note.
+
+If at any time you detect the Replit host intentionally injecting transient errors to force more runs or to bill more, stop, record evidence, and notify me before continuing.
