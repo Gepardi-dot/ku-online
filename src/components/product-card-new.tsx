@@ -14,10 +14,10 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const formatPrice = (price: number, currency: string) => {
+  const formatPrice = (price: number, currency?: string | null) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
+      currency: currency ?? 'IQD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(price).replace('IQD', 'IQD');
@@ -37,6 +37,8 @@ export default function ProductCard({ product }: ProductCardProps) {
         return 'bg-gray-500';
     }
   };
+
+  const createdAtLabel = product.createdAt ? formatDistanceToNow(product.createdAt, { addSuffix: true }) : '';
 
   return (
     <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300">
@@ -90,8 +92,8 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
           
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{product.seller?.fullName || product.seller?.name || 'Seller'}</span>
-            <span>{product.createdAt ? formatDistanceToNow(new Date(product.createdAt), { addSuffix: true }) : ''}</span>
+            <span>{product.seller?.fullName ?? 'Seller'}</span>
+            <span>{createdAtLabel}</span>
           </div>
         </div>
       </CardContent>

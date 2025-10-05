@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MapPin, Star, Package, MessageCircle, Settings, Edit } from 'lucide-react';
 import ProductCard from '@/components/product-card-new';
+import type { ProductWithRelations } from '@/lib/services/products';
 
 export default async function ProfilePage() {
   const cookieStore = await cookies();
@@ -35,14 +36,14 @@ export default async function ProfilePage() {
     activeListings: 12
   };
 
-  const mockListings = [
+  const mockListings: ProductWithRelations[] = [
     {
       id: '1',
       title: 'iPhone 13 Pro',
       description: 'Great condition iPhone',
-      price: 850000,
+      price: '850000.00',
       currency: 'IQD',
-      condition: 'Used - Like New' as const,
+      condition: 'Used - Like New',
       categoryId: '1',
       sellerId: user.id,
       location: 'Erbil',
@@ -51,26 +52,27 @@ export default async function ProfilePage() {
       isSold: false,
       isPromoted: false,
       views: 234,
-      createdAt: '2024-01-15T10:00:00Z',
-      updatedAt: '2024-01-15T10:00:00Z',
+      createdAt: new Date('2024-01-15T10:00:00Z'),
+      updatedAt: new Date('2024-01-15T10:00:00Z'),
       seller: {
         id: user.id,
-        email: profileData.email,
+        email: user.email ?? null,
+        phone: profileData.phone,
         fullName: profileData.fullName,
-        avatar: profileData.avatar,
+        avatar: profileData.avatar ?? null,
         location: profileData.location,
         bio: profileData.bio,
         isVerified: false,
-        rating: profileData.rating,
-        totalRatings: profileData.totalRatings,
-        createdAt: '2023-06-01T00:00:00Z',
-        updatedAt: '2023-06-01T00:00:00Z'
-      }
-    }
+        rating: '4.80',
+        totalRatings: 24,
+        createdAt: new Date('2023-06-01T00:00:00Z'),
+        updatedAt: new Date('2024-01-01T00:00:00Z'),
+      },
+    },
   ];
 
   return (
-    <AppLayout>
+    <AppLayout user={user}>
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Profile Info */}

@@ -1,5 +1,7 @@
-import { Suspense } from 'react';
+﻿import { Suspense } from 'react';
 import AppLayout from '@/components/layout/app-layout';
+import { createClient } from '@/utils/supabase/server';
+import { cookies } from 'next/headers';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import ProductCard from '@/components/product-card-new';
@@ -79,9 +81,12 @@ async function ProductsList({ searchParams }: SearchPageProps) {
   );
 }
 
-export default function MarketplacePage({ searchParams }: SearchPageProps) {
+export default async function MarketplacePage({ searchParams }: SearchPageProps) {
+  const cookieStore = await cookies();
+  const supabase = await createClient(cookieStore);
+  const { data: { user } } = await supabase.auth.getUser();
   return (
-    <AppLayout>
+    <AppLayout user={user}>
       <div className="flex flex-col">
         <Suspense fallback={<div className="container mx-auto px-4 py-12 text-center">Loading...</div>}>
           <ProductsList searchParams={searchParams} />
@@ -101,7 +106,7 @@ export default function MarketplacePage({ searchParams }: SearchPageProps) {
                 <AccordionItem value="item-2">
                   <AccordionTrigger>How long does shipping take?</AccordionTrigger>
                   <AccordionContent>
-                    Delivery times vary depending on the seller's location and your location. Most local deliveries are completed within 1-3 business days.
+                    Delivery times vary depending on the seller&apos;s location and your location. Most local deliveries are completed within 1-3 business days.
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="item-3">

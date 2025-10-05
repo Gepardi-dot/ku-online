@@ -1,13 +1,15 @@
+'use client';
+
 import type { ReactNode } from 'react';
+import type { User } from '@supabase/supabase-js';
 import AppHeader from './header';
-import { createClient } from '@/utils/supabase/server';
-import { cookies } from 'next/headers';
 
-export default async function AppLayout({ children }: { children: ReactNode }) {
-  const cookieStore = await cookies();
-  const supabase = await createClient(cookieStore);
-  const { data: { user } } = await supabase.auth.getUser();
+interface AppLayoutProps {
+  children: ReactNode;
+  user: User | null;
+}
 
+export default function AppLayout({ children, user }: AppLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <AppHeader user={user} />

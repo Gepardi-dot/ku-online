@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import AppLayout from '@/components/layout/app-layout';
+import { createClient } from '@/utils/supabase/server';
+import { cookies } from 'next/headers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -65,6 +67,9 @@ interface ProductPageProps {
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { id } = await params;
+  const cookieStore = await cookies();
+  const supabase = await createClient(cookieStore);
+  const { data: { user } } = await supabase.auth.getUser();
   
   if (!id) {
     notFound();
@@ -95,7 +100,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   };
 
   return (
-    <AppLayout>
+    <AppLayout user={user}>
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Product Images */}
@@ -155,7 +160,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="h-4 w-4" />
                     {product.location}
-                    <span>•</span>
+                    <span>&bull;</span>
                     <span>{formatDistanceToNow(new Date(product.createdAt), { addSuffix: true })}</span>
                   </div>
 
@@ -182,7 +187,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                         <div className="flex items-center gap-2">
                           <h4 className="font-medium">{product.seller.name}</h4>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm text-yellow-500">★</span>
+                            <span className="text-sm text-yellow-500">&#9733;</span>
                             <span className="text-sm">{product.seller.rating}</span>
                             <span className="text-sm text-muted-foreground">
                               ({product.seller.totalRatings} reviews)
