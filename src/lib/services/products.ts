@@ -1,9 +1,53 @@
-import { db, products, categories, Product, User, Category } from '@/lib/database';
-import { eq, sql } from 'drizzle-orm';
 
-export interface ProductWithRelations extends Product {
-  seller: User;
-  category?: Category;
+import { cookies } from "next/headers";
+import { createClient } from "@/utils/supabase/server";
+
+export interface SellerProfile {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  fullName: string | null;
+  avatar: string | null;
+  location: string | null;
+  bio: string | null;
+  isVerified: boolean;
+  rating: number | null;
+  totalRatings: number | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface MarketplaceCategory {
+  id: string;
+  name: string;
+  nameAr: string | null;
+  nameKu: string | null;
+  description: string | null;
+  icon: string | null;
+  isActive: boolean;
+  sortOrder: number | null;
+  createdAt: Date | null;
+}
+
+export interface ProductWithRelations {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number;
+  currency: string | null;
+  condition: string | null;
+  categoryId: string | null;
+  sellerId: string;
+  location: string | null;
+  images: string[];
+  isActive: boolean;
+  isSold: boolean;
+  isPromoted: boolean;
+  views: number;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  seller: SellerProfile | null;
+  category?: MarketplaceCategory | null;
 }
 
 export interface ProductFilters {
@@ -13,136 +57,307 @@ export interface ProductFilters {
   maxPrice?: number;
   location?: string;
   search?: string;
+  sellerId?: string;
 }
 
-const mockSellers: Record<string, User> = {
-  seller1: {
-    id: 'seller1',
-    email: 'seller@example.com',
-    phone: '+964750000001',
-    fullName: 'Erbil Classic Wears',
-    avatar: 'https://picsum.photos/seed/seller1/40/40',
-    location: 'Erbil',
-    bio: 'Quality fashion retailer',
-    isVerified: true,
-    rating: '4.80',
-    totalRatings: 24,
-    createdAt: new Date('2023-06-01T00:00:00Z'),
-    updatedAt: new Date('2024-01-01T00:00:00Z'),
-  },
-  seller2: {
-    id: 'seller2',
-    email: 'electronics@example.com',
-    phone: '+964750000002',
-    fullName: 'Duhok Electronics',
-    avatar: 'https://picsum.photos/seed/seller2/40/40',
-    location: 'Duhok',
-    bio: 'Electronics and gadgets specialist',
-    isVerified: true,
-    rating: '4.90',
-    totalRatings: 45,
-    createdAt: new Date('2023-04-10T00:00:00Z'),
-    updatedAt: new Date('2024-01-01T00:00:00Z'),
-  },
+type SupabaseProductRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number | string | null;
+  currency: string | null;
+  condition: string | null;
+  category_id: string | null;
+  seller_id: string;
+  location: string | null;
+  images: string[] | null;
+  is_active: boolean | null;
+  is_sold: boolean | null;
+  is_promoted: boolean | null;
+  views: number | string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  seller: any;
+  category: any;
 };
-
-const mockCategories: Category[] = [
-  {
-    id: '1',
-    name: 'Electronics',
-    nameAr: 'Electronics',
-    nameKu: 'Electronics',
-    description: 'Phones, computers, and accessories',
-    icon: 'electronics',
-    isActive: true,
-    sortOrder: 1,
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-  },
-  {
-    id: '2',
-    name: 'Fashion',
-    nameAr: 'Fashion',
-    nameKu: 'Fashion',
-    description: 'Clothing and accessories',
-    icon: 'fashion',
-    isActive: true,
-    sortOrder: 2,
-    createdAt: new Date('2024-01-01T00:00:00Z'),
-  },
-];
-
-export async function getProducts(_filters: ProductFilters = {}, _limit = 20, _offset = 0) {
-  const mockProducts: ProductWithRelations[] = [
-    {
-      id: '1',
-      title: 'Vintage Leather Jacket',
-      description: 'High-quality vintage leather jacket in excellent condition',
-      price: '150000.00',
-      currency: 'IQD',
-      condition: 'Used - Good',
-      categoryId: '2',
-      sellerId: 'seller1',
-      location: 'Erbil',
-      images: ['https://picsum.photos/seed/jacket/400/300'],
-      isActive: true,
-      isSold: false,
-      isPromoted: false,
-      views: 234,
-      createdAt: new Date('2024-02-15T10:00:00Z'),
-      updatedAt: new Date('2024-03-01T12:00:00Z'),
-      seller: mockSellers.seller1,
-      category: mockCategories[1],
-    },
-    {
-      id: '2',
-      title: 'Gaming Mouse Pro',
-      description: 'Professional gaming mouse with RGB lighting',
-      price: '75000.00',
-      currency: 'IQD',
-      condition: 'New',
-      categoryId: '1',
-      sellerId: 'seller2',
-      location: 'Duhok',
-      images: ['https://picsum.photos/seed/mouse/400/300'],
-      isActive: true,
-      isSold: false,
-      isPromoted: true,
-      views: 156,
-      createdAt: new Date('2024-02-05T08:00:00Z'),
-      updatedAt: new Date('2024-02-20T09:30:00Z'),
-      seller: mockSellers.seller2,
-      category: mockCategories[0],
-    },
-  ];
-
-  return mockProducts;
+function toDate(value: string | null): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export async function getCategories() {
-  return mockCategories;
+function normalizeImages(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+  return [];
 }
 
-export async function createProduct(productData: Omit<typeof products.$inferInsert, 'id' | 'createdAt' | 'updatedAt'>) {
-  const [newProduct] = await db
-    .insert(products)
-    .values({
-      ...productData,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .returning();
+function mapSeller(row: any | null): SellerProfile | null {
+  if (!row) return null;
 
-  return newProduct;
+  return {
+    id: row.id,
+    email: row.email ?? null,
+    phone: row.phone ?? null,
+    fullName: row.full_name ?? row.fullName ?? null,
+    avatar: row.avatar_url ?? row.avatar ?? null,
+    location: row.location ?? null,
+    bio: row.bio ?? null,
+    isVerified: Boolean(row.is_verified),
+    rating: typeof row.rating === "number" ? row.rating : row.rating ? Number(row.rating) : null,
+    totalRatings: typeof row.total_ratings === "number" ? row.total_ratings : row.total_ratings ? Number(row.total_ratings) : null,
+    createdAt: toDate(row.created_at ?? null),
+    updatedAt: toDate(row.updated_at ?? null),
+  };
+}
+
+function mapCategory(row: any | null): MarketplaceCategory | null {
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    name: row.name ?? "Unnamed",
+    nameAr: row.name_ar ?? null,
+    nameKu: row.name_ku ?? null,
+    description: row.description ?? null,
+    icon: row.icon ?? null,
+    isActive: row.is_active ?? true,
+    sortOrder: typeof row.sort_order === "number" ? row.sort_order : row.sort_order ? Number(row.sort_order) : null,
+    createdAt: toDate(row.created_at ?? null),
+  };
+}
+
+function mapProduct(row: SupabaseProductRow): ProductWithRelations {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    price: typeof row.price === "number" ? row.price : row.price ? Number(row.price) : 0,
+    currency: row.currency ?? "IQD",
+    condition: row.condition,
+    categoryId: row.category_id,
+    sellerId: row.seller_id,
+    location: row.location,
+    images: normalizeImages(row.images),
+    isActive: row.is_active ?? true,
+    isSold: row.is_sold ?? false,
+    isPromoted: row.is_promoted ?? false,
+    views: typeof row.views === "number" ? row.views : row.views ? Number(row.views) : 0,
+    createdAt: toDate(row.created_at),
+    updatedAt: toDate(row.updated_at),
+    seller: mapSeller(row.seller ?? null),
+    category: mapCategory(row.category ?? null),
+  };
+}
+
+async function getSupabase() {
+  const cookieStore = await cookies();
+  return createClient(cookieStore);
+}
+export async function getProducts(filters: ProductFilters = {}, limit = 20, offset = 0) {
+  const supabase = await getSupabase();
+  const rangeEnd = limit > 0 ? offset + limit - 1 : offset;
+
+  let query = supabase
+    .from("products")
+    .select(
+      `*,
+       seller:users!products_seller_id_fkey(
+         id,
+         email,
+         phone,
+         full_name,
+         avatar_url,
+         location,
+         bio,
+         is_verified,
+         rating,
+         total_ratings,
+         created_at,
+         updated_at
+       ),
+       category:categories!products_category_id_fkey(
+         id,
+         name,
+         name_ar,
+         name_ku,
+         description,
+         icon,
+         is_active,
+         sort_order,
+         created_at
+       )`
+    )
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .range(offset, rangeEnd);
+
+  if (filters.category) {
+    query = query.eq("category_id", filters.category);
+  }
+
+  if (filters.condition) {
+    query = query.eq("condition", filters.condition);
+  }
+
+  if (filters.location) {
+    const locationTerm = "%" + filters.location + "%";
+    query = query.ilike("location", locationTerm);
+  }
+
+  if (typeof filters.minPrice === "number") {
+    query = query.gte("price", filters.minPrice);
+  }
+
+  if (typeof filters.maxPrice === "number") {
+    query = query.lte("price", filters.maxPrice);
+  }
+
+  if (filters.search) {
+    const term = "%" + filters.search + "%";
+    query = query.ilike("title", term);
+  }
+
+  if (filters.sellerId) {
+    query = query.eq("seller_id", filters.sellerId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Failed to load products", error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => mapProduct(row as SupabaseProductRow));
+}
+export async function getProductById(id: string) {
+  const supabase = await getSupabase();
+
+  const { data, error } = await supabase
+    .from("products")
+    .select(
+      `*,
+       seller:users!products_seller_id_fkey(
+         id,
+         email,
+         phone,
+         full_name,
+         avatar_url,
+         location,
+         bio,
+         is_verified,
+         rating,
+         total_ratings,
+         created_at,
+         updated_at
+       ),
+       category:categories!products_category_id_fkey(
+         id,
+         name,
+         name_ar,
+         name_ku,
+         description,
+         icon,
+         is_active,
+         sort_order,
+         created_at
+       )`
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) {
+      console.error("Failed to load product", error);
+    }
+    return null;
+  }
+
+  return mapProduct(data as SupabaseProductRow);
+}
+export async function getCategories(): Promise<MarketplaceCategory[]> {
+  const supabase = await getSupabase();
+
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, name, name_ar, name_ku, description, icon, is_active, sort_order, created_at")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("Failed to load categories", error);
+    return [];
+  }
+
+  return (data ?? [])
+    .map((row) => mapCategory(row))
+    .filter((category): category is MarketplaceCategory => Boolean(category));
+}
+export async function createProduct(productData: {
+  title: string;
+  description?: string | null;
+  price: number;
+  currency?: string | null;
+  condition: string;
+  categoryId?: string | null;
+  location?: string | null;
+  images?: string[];
+  sellerId: string;
+}) {
+  const supabase = await getSupabase();
+
+  const payload = {
+    title: productData.title,
+    description: productData.description ?? null,
+    price: productData.price,
+    currency: productData.currency ?? "IQD",
+    condition: productData.condition,
+    category_id: productData.categoryId ?? null,
+    location: productData.location ?? null,
+    images: productData.images ?? [],
+    seller_id: productData.sellerId,
+    is_active: true,
+  };
+
+  const { data, error } = await supabase.from("products").insert(payload).select("*").maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ? mapProduct(data as SupabaseProductRow) : null;
 }
 
 export async function incrementProductViews(productId: string) {
-  await db
-    .update(products)
-    .set({
-      views: sql`${products.views} + 1`,
-      updatedAt: new Date(),
-    })
-    .where(eq(products.id, productId));
+  const supabase = await getSupabase();
+
+  const { data, error } = await supabase.from("products").select("views").eq("id", productId).single();
+
+  if (error) {
+    console.error("Failed to read product views", error);
+    return;
+  }
+
+  const currentViews = typeof data?.views === "number" ? data.views : data?.views ? Number(data.views) : 0;
+
+  const { error: updateError } = await supabase
+    .from("products")
+    .update({ views: currentViews + 1 })
+    .eq("id", productId);
+
+  if (updateError) {
+    console.error("Failed to increment product views", updateError);
+  }
 }
 
+export async function getSimilarProducts(productId: string, categoryId: string | null, limit = 6) {
+  if (!categoryId) {
+    return [];
+  }
 
+  const products = await getProducts({ category: categoryId }, limit * 2, 0);
+  return products.filter((product) => product.id !== productId).slice(0, limit);
+}

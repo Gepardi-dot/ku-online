@@ -1,6 +1,7 @@
+
 import { redirect } from 'next/navigation';
-import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
 import AppLayout from '@/components/layout/app-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MapPin, Star, Package, MessageCircle, Settings, Edit } from 'lucide-react';
 import ProductCard from '@/components/product-card-new';
-import type { ProductWithRelations } from '@/lib/services/products';
+import { getProducts } from '@/lib/services/products';
+import { formatDistanceToNow } from 'date-fns';
 
 export default async function ProfilePage() {
   const cookieStore = await cookies();
@@ -20,82 +22,69 @@ export default async function ProfilePage() {
     redirect('/');
   }
 
-  // Mock user data - in real app, fetch from database
+  const { data: profileRow } = await supabase
+    .from('users')
+    .select('full_name, avatar_url, phone, location, bio, rating, total_ratings, created_at, response_rate, is_verified')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const listings = await getProducts({ sellerId: user.id }, 24, 0);
+
   const profileData = {
-    fullName: user.user_metadata?.full_name || 'User',
-    avatar: user.user_metadata?.avatar_url,
+    fullName: profileRow?.full_name ?? user.user_metadata?.full_name ?? 'User',
+    avatar: profileRow?.avatar_url ?? user.user_metadata?.avatar_url ?? null,
     email: user.email,
-    phone: '+964 750 123 4567',
-    location: 'Erbil',
-    bio: 'Selling quality items at great prices. Fast shipping and excellent customer service.',
-    rating: 4.8,
-    totalRatings: 24,
-    joinedDate: '2023-06-01',
-    responseRate: '95%',
-    totalSales: 47,
-    activeListings: 12
+    phone: profileRow?.phone ?? user.user_metadata?.phone ?? null,
+    location: profileRow?.location ?? user.user_metadata?.location ?? 'Kurdistan',
+    bio:
+      profileRow?.bio ??
+      'Selling quality items at great prices. Fast shipping and excellent customer service.',
+    rating: profileRow?.rating ? Number(profileRow.rating) : null,
+    totalRatings: profileRow?.total_ratings ? Number(profileRow.total_ratings) : 0,
+    joinedDate: profileRow?.created_at ?? user.created_at ?? null,
+    responseRate: profileRow?.response_rate ?? '—',
+    isVerified: Boolean(profileRow?.is_verified),
   };
 
-  const mockListings: ProductWithRelations[] = [
-    {
-      id: '1',
-      title: 'iPhone 13 Pro',
-      description: 'Great condition iPhone',
-      price: '850000.00',
-      currency: 'IQD',
-      condition: 'Used - Like New',
-      categoryId: '1',
-      sellerId: user.id,
-      location: 'Erbil',
-      images: ['https://picsum.photos/seed/phone/400/300'],
-      isActive: true,
-      isSold: false,
-      isPromoted: false,
-      views: 234,
-      createdAt: new Date('2024-01-15T10:00:00Z'),
-      updatedAt: new Date('2024-01-15T10:00:00Z'),
-      seller: {
-        id: user.id,
-        email: user.email ?? null,
-        phone: profileData.phone,
-        fullName: profileData.fullName,
-        avatar: profileData.avatar ?? null,
-        location: profileData.location,
-        bio: profileData.bio,
-        isVerified: false,
-        rating: '4.80',
-        totalRatings: 24,
-        createdAt: new Date('2023-06-01T00:00:00Z'),
-        updatedAt: new Date('2024-01-01T00:00:00Z'),
-      },
-    },
-  ];
+  const joinedLabel = profileData.joinedDate
+    ? formatDistanceToNow(new Date(profileData.joinedDate), { addSuffix: true })
+    : null;
 
   return (
     <AppLayout user={user}>
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Profile Info */}
           <div className="lg:col-span-1">
             <Card>
               <CardContent className="p-6">
                 <div className="text-center space-y-4">
                   <Avatar className="h-24 w-24 mx-auto">
-                    <AvatarImage src={profileData.avatar} />
+                    <AvatarImage src={profileData.avatar ?? undefined} />
                     <AvatarFallback className="text-2xl">
                       {profileData.fullName[0]}
                     </AvatarFallback>
                   </Avatar>
-                  
+
+                  {profileData.isVerified && (
+                    <div className="flex justify-center">
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <Star className="h-3 w-3 text-yellow-500" />
+                        Verified Seller
+                      </Badge>
+                    </div>
+                  )}
+
                   <div>
                     <h1 className="text-2xl font-bold">{profileData.fullName}</h1>
-                    <div className="flex items-center justify-center gap-1 mt-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="font-medium">{profileData.rating}</span>
-                      <span className="text-muted-foreground">
-                        ({profileData.totalRatings} reviews)
-                      </span>
-                    </div>
+                    {(profileData.rating || profileData.totalRatings) && (
+                      <div className="flex items-center justify-center gap-1 mt-1">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        <span className="font-medium">{(profileData.rating ?? 0).toFixed(1)}</span>
+                        <span className="text-muted-foreground">
+                          ({profileData.totalRatings} reviews)
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-center gap-1 text-muted-foreground">
@@ -103,18 +92,20 @@ export default async function ProfilePage() {
                     {profileData.location}
                   </div>
 
-                  <p className="text-sm text-muted-foreground">
-                    {profileData.bio}
-                  </p>
+                  {joinedLabel && (
+                    <p className="text-xs text-muted-foreground">Member since {joinedLabel}</p>
+                  )}
+
+                  <p className="text-sm text-muted-foreground">{profileData.bio}</p>
 
                   <div className="grid grid-cols-3 gap-4 py-4 border-t border-b">
                     <div className="text-center">
-                      <div className="font-bold text-lg">{profileData.totalSales}</div>
-                      <div className="text-xs text-muted-foreground">Sales</div>
+                      <div className="font-bold text-lg">{listings.length}</div>
+                      <div className="text-xs text-muted-foreground">Listings</div>
                     </div>
                     <div className="text-center">
-                      <div className="font-bold text-lg">{profileData.activeListings}</div>
-                      <div className="text-xs text-muted-foreground">Active</div>
+                      <div className="font-bold text-lg">{profileData.totalRatings}</div>
+                      <div className="text-xs text-muted-foreground">Reviews</div>
                     </div>
                     <div className="text-center">
                       <div className="font-bold text-lg">{profileData.responseRate}</div>
@@ -137,7 +128,6 @@ export default async function ProfilePage() {
             </Card>
           </div>
 
-          {/* Profile Tabs */}
           <div className="lg:col-span-2">
             <Tabs defaultValue="listings" className="space-y-6">
               <TabsList className="grid w-full grid-cols-4">
@@ -162,14 +152,20 @@ export default async function ProfilePage() {
               <TabsContent value="listings" className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>My Listings ({mockListings.length})</CardTitle>
+                    <CardTitle>My Listings ({listings.length})</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {mockListings.map((listing) => (
-                        <ProductCard key={listing.id} product={listing} />
-                      ))}
-                    </div>
+                    {listings.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        You have not published any listings yet.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {listings.map((listing) => (
+                          <ProductCard key={listing.id} product={listing} />
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -181,7 +177,7 @@ export default async function ProfilePage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-center py-8 text-muted-foreground">
-                      Reviews will appear here when buyers leave feedback
+                      Reviews will appear here when buyers leave feedback.
                     </div>
                   </CardContent>
                 </Card>
@@ -194,7 +190,7 @@ export default async function ProfilePage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-center py-8 text-muted-foreground">
-                      Your conversations will appear here
+                      Your conversations will appear here.
                     </div>
                   </CardContent>
                 </Card>
@@ -211,10 +207,12 @@ export default async function ProfilePage() {
                         <label className="text-sm font-medium">Email</label>
                         <p className="text-sm text-muted-foreground">{profileData.email}</p>
                       </div>
-                      <div>
-                        <label className="text-sm font-medium">Phone</label>
-                        <p className="text-sm text-muted-foreground">{profileData.phone}</p>
-                      </div>
+                      {profileData.phone && (
+                        <div>
+                          <label className="text-sm font-medium">Phone</label>
+                          <p className="text-sm text-muted-foreground">{profileData.phone}</p>
+                        </div>
+                      )}
                       <Button variant="outline" className="mt-4">
                         Update Contact Information
                       </Button>

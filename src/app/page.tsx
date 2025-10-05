@@ -9,7 +9,6 @@ import Link from 'next/link';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Input } from '@/components/ui/input';
 import { getProducts, getCategories } from '@/lib/services/products';
-import { seedDatabase } from '@/lib/seed-data';
 
 interface SearchPageProps {
   searchParams: Promise<{
@@ -41,15 +40,20 @@ async function ProductsList({ searchParams }: SearchPageProps) {
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-x-6 gap-y-2 flex-wrap">
             <h3 className="text-lg font-semibold mr-4">Categories:</h3>
-            {categories.map((category) => (
-              <Link 
-                href={`/?category=${category.id}`} 
-                key={category.id} 
-                className="font-medium text-muted-foreground hover:text-primary transition-colors"
-              >
-                {category.icon} {category.name}
-              </Link>
-            ))}
+                        {categories.length === 0 ? (
+              <span className="text-sm text-muted-foreground">No categories available yet.</span>
+            ) : (
+              categories.map((category) => (
+                <Link
+                  href={`/?category=${category.id}`}
+                  key={category.id}
+                  className="font-medium text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {category.icon ? `${category.icon} ` : ''}
+                  {category.name}
+                </Link>
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -60,7 +64,7 @@ async function ProductsList({ searchParams }: SearchPageProps) {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl md:text-3xl font-bold">Latest Listings</h2>
             <Button asChild variant="link" className="text-primary font-semibold">
-              <Link href="#">View All <ArrowRight className="ml-2 h-4 w-4" /></Link>
+              <Link href="/products">View All <ArrowRight className="ml-2 h-4 w-4" /></Link>
             </Button>
           </div>
 
@@ -134,3 +138,5 @@ export default async function MarketplacePage({ searchParams }: SearchPageProps)
     </AppLayout>
   );
 }
+
+

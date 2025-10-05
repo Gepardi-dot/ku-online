@@ -1,6 +1,7 @@
-﻿'use client';
 
-import { useState } from 'react';
+'use client';
+
+import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
@@ -44,8 +45,34 @@ export default function SellForm({ user }: SellFormProps) {
     location: '',
     images: [] as string[],
   });
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error loading categories', error);
+        toast({
+          title: 'Unable to load categories',
+          description: 'Please try again later.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setCategories(data ?? []);
+    };
+
+    loadCategories();
+  }, [supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +90,15 @@ export default function SellForm({ user }: SellFormProps) {
         return;
       }
 
+      if (!formData.categoryId) {
+        toast({
+          title: 'Category required',
+          description: 'Please choose a category for your listing.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('products')
         .insert({
@@ -71,8 +107,11 @@ export default function SellForm({ user }: SellFormProps) {
           price: parseFloat(formData.price),
           condition: formData.condition,
           location: formData.location,
+          category_id: formData.categoryId,
           seller_id: currentUser.id,
           images: formData.images,
+          currency: 'IQD',
+          is_active: true,
         });
 
       if (error) {
@@ -173,6 +212,26 @@ export default function SellForm({ user }: SellFormProps) {
                   {cities.map((city) => (
                     <SelectItem key={city} value={city}>
                       {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="category">Category *</Label>
+              <Select
+                value={formData.categoryId}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, categoryId: value }))}
+                disabled={categories.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={categories.length ? 'Select category' : 'Loading categories...'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

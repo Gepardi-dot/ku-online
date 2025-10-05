@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = await createClient(cookieStore);
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
@@ -24,3 +24,4 @@ export async function GET(request: Request) {
 
   return NextResponse.redirect(redirectUrl);
 }
+
