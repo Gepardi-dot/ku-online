@@ -24,10 +24,12 @@ export default function AuthButton({ user }: AuthButtonProps) {
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
+      const origin = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
+
       await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${origin}/auth/callback`,
         },
       });
     } catch (error) {
