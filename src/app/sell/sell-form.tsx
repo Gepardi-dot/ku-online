@@ -1,8 +1,8 @@
-
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import type { User } from '@supabase/supabase-js';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload } from 'lucide-react';
+import { Loader2, Upload, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const conditions = [
@@ -30,12 +30,26 @@ const cities = [
   'Soran',
 ];
 
+const MAX_IMAGES = 5;
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ACCEPTED_FILE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
+const ACCEPTED_FILE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'avif'];
+const ACCEPTED_FILE_LABELS = ['JPG', 'PNG', 'WebP', 'AVIF'];
+const ACCEPTED_FILES_DESCRIPTION = ACCEPTED_FILE_LABELS.join(', ');
+const STORAGE_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? 'product-images';
+
+type UploadedImage = {
+  url: string;
+  path: string;
+};
+
 interface SellFormProps {
   user: User | null;
 }
 
 export default function SellForm({ user }: SellFormProps) {
   const [loading, setLoading] = useState(false);
+  const [storageBusy, setStorageBusy] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -46,8 +60,12 @@ export default function SellForm({ user }: SellFormProps) {
     images: [] as string[],
   });
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(user);
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [isDragActive, setIsDragActive] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -74,14 +92,247 @@ export default function SellForm({ user }: SellFormProps) {
     loadCategories();
   }, [supabase]);
 
+  useEffect(() => {
+    if (currentUser) {
+      return;
+    }
+
+    const resolveUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error('Error resolving current user', error);
+        return;
+      }
+
+      setCurrentUser(data.user ?? null);
+    };
+
+    resolveUser();
+  }, [currentUser, supabase]);
+
+  const determineExtension = (file: File) => {
+    const nameExt = file.name.split('.').pop()?.toLowerCase();
+    if (nameExt && ACCEPTED_FILE_EXTENSIONS.includes(nameExt)) {
+      return nameExt === 'jpeg' ? 'jpg' : nameExt;
+    }
+
+    switch (file.type) {
+      case 'image/jpeg':
+        return 'jpg';
+      case 'image/png':
+        return 'png';
+      case 'image/webp':
+        return 'webp';
+      case 'image/avif':
+        return 'avif';
+      default:
+        return null;
+    }
+  };
+
+  const processFiles = async (incomingFiles: File[]) => {
+    if (incomingFiles.length === 0) {
+      return;
+    }
+
+    if (storageBusy) {
+      return;
+    }
+
+    const userForUpload = currentUser ?? (await supabase.auth.getUser()).data.user;
+
+    if (!userForUpload) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please sign in to upload images.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let availableSlots = MAX_IMAGES - uploadedImages.length;
+
+    if (availableSlots <= 0) {
+      toast({
+        title: 'Upload limit reached',
+        description: `You can upload up to ${MAX_IMAGES} images per listing.`,
+      });
+      return;
+    }
+
+    const filesToHandle = incomingFiles.slice(0, availableSlots);
+
+    if (incomingFiles.length > filesToHandle.length) {
+      toast({
+        title: 'Upload limit reached',
+        description: `Only ${availableSlots} more image${availableSlots === 1 ? '' : 's'} can be added (maximum ${MAX_IMAGES}).`,
+      });
+    }
+
+    setStorageBusy(true);
+
+    try {
+      for (const file of filesToHandle) {
+        if (file.size > MAX_FILE_SIZE) {
+          toast({
+            title: 'File too large',
+            description: `${file.name} exceeds the 10MB size limit.`,
+            variant: 'destructive',
+          });
+          continue;
+        }
+
+        const extension = determineExtension(file);
+
+        if (!extension) {
+          toast({
+            title: 'Unsupported file type',
+            description: `${file.name} must be a ${ACCEPTED_FILES_DESCRIPTION} image.`,
+            variant: 'destructive',
+          });
+          continue;
+        }
+
+        const normalizedExtension = extension === 'jpeg' ? 'jpg' : extension;
+        const contentType = file.type && file.type.includes('/')
+          ? file.type
+          : normalizedExtension === 'jpg'
+            ? 'image/jpeg'
+            : `image/${normalizedExtension}`;
+
+        const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const filePath = `${userForUpload.id}/${uniqueSuffix}.${normalizedExtension}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType,
+          });
+
+        if (uploadError) {
+          console.error('Failed to upload image', uploadError);
+          toast({
+            title: 'Upload failed',
+            description: `Could not upload ${file.name}. Please try again.`,
+            variant: 'destructive',
+          });
+          continue;
+        }
+
+        const { data: publicUrlData, error: publicUrlError } = supabase.storage
+          .from(STORAGE_BUCKET)
+          .getPublicUrl(filePath);
+
+        if (publicUrlError || !publicUrlData?.publicUrl) {
+          console.error('Failed to create public URL', publicUrlError);
+          await supabase.storage.from(STORAGE_BUCKET).remove([filePath]);
+          toast({
+            title: 'Upload failed',
+            description: `Could not prepare ${file.name} for display. Please try again.`,
+            variant: 'destructive',
+          });
+          continue;
+        }
+
+        setUploadedImages((prev) => [...prev, { url: publicUrlData.publicUrl, path: filePath }]);
+        setFormData((prev) => ({ ...prev, images: [...prev.images, publicUrlData.publicUrl] }));
+
+        availableSlots -= 1;
+        if (availableSlots <= 0) {
+          break;
+        }
+      }
+    } finally {
+      setStorageBusy(false);
+    }
+  };
+
+  const handleFileButtonClick = () => {
+    if (uploadedImages.length >= MAX_IMAGES) {
+      toast({
+        title: 'Upload limit reached',
+        description: `You can upload up to ${MAX_IMAGES} images per listing.`,
+      });
+      return;
+    }
+
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = event.target.files ? Array.from(event.target.files) : [];
+
+    if (!selectedFiles.length) {
+      return;
+    }
+
+    await processFiles(selectedFiles);
+    event.target.value = '';
+  };
+
+  const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (storageBusy) {
+      return;
+    }
+
+    const droppedFiles = event.dataTransfer?.files ? Array.from(event.dataTransfer.files) : [];
+
+    if (!droppedFiles.length) {
+      setIsDragActive(false);
+      return;
+    }
+
+    await processFiles(droppedFiles);
+    setIsDragActive(false);
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!storageBusy) {
+      setIsDragActive(true);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setIsDragActive(false);
+  };
+
+  const handleRemoveImage = async (image: UploadedImage) => {
+    setStorageBusy(true);
+
+    try {
+      const { error } = await supabase.storage.from(STORAGE_BUCKET).remove([image.path]);
+      if (error) {
+        console.error('Failed to remove image', error);
+        toast({
+          title: 'Unable to remove image',
+          description: 'Please try again in a moment.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setUploadedImages((prev) => prev.filter((item) => item.path !== image.path));
+      setFormData((prev) => ({
+        ...prev,
+        images: prev.images.filter((url) => url !== image.url),
+      }));
+    } finally {
+      setStorageBusy(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const currentUser = user ?? (await supabase.auth.getUser()).data.user;
+      const resolvedUser = currentUser ?? (await supabase.auth.getUser()).data.user;
 
-      if (!currentUser) {
+      if (!resolvedUser) {
         toast({
           title: 'Authentication required',
           description: 'Please sign in to create a listing.',
@@ -99,16 +350,53 @@ export default function SellForm({ user }: SellFormProps) {
         return;
       }
 
+      if (!formData.condition) {
+        toast({
+          title: 'Condition required',
+          description: 'Please select the condition of your product.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!formData.location) {
+        toast({
+          title: 'Location required',
+          description: 'Please choose where the product is located.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const priceValue = Number(formData.price);
+      if (!Number.isFinite(priceValue) || priceValue < 0) {
+        toast({
+          title: 'Invalid price',
+          description: 'Please enter a valid price for your listing.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (formData.images.length === 0) {
+        toast({
+          title: 'Add at least one image',
+          description: 'Upload a photo so buyers can see your product.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('products')
         .insert({
           title: formData.title,
           description: formData.description,
-          price: parseFloat(formData.price),
+          price: priceValue,
           condition: formData.condition,
           location: formData.location,
           category_id: formData.categoryId,
-          seller_id: currentUser.id,
+          seller_id: resolvedUser.id,
           images: formData.images,
           currency: 'IQD',
           is_active: true,
@@ -127,8 +415,8 @@ export default function SellForm({ user }: SellFormProps) {
     } catch (error) {
       console.error('Error creating listing:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to create listing. Please try again.',
+        title: 'Failed to create listing',
+        description: 'Please review your details and try again.',
         variant: 'destructive',
       });
     } finally {
@@ -175,6 +463,8 @@ export default function SellForm({ user }: SellFormProps) {
                   value={formData.price}
                   onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))}
                   placeholder="0"
+                  min="0"
+                  step="0.01"
                   required
                 />
               </div>
@@ -239,18 +529,76 @@ export default function SellForm({ user }: SellFormProps) {
             </div>
 
             <div>
-              <Label>Images</Label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <Label>Images *</Label>
+              <div
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition ${
+                  isDragActive ? 'border-primary bg-primary/5' : 'border-gray-300'
+                } ${storageBusy ? 'opacity-60' : ''}`}
+                onDragEnter={handleDragOver}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                role="presentation"
+              >
                 <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                <p className="text-gray-600">Upload up to 5 images</p>
-                <p className="text-sm text-gray-400">JPG, PNG up to 10MB each</p>
-                <Button type="button" variant="outline" className="mt-2">
-                  Choose Files
+                <p className="text-gray-600">Drag and drop images here or</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2"
+                  onClick={handleFileButtonClick}
+                  disabled={storageBusy || uploadedImages.length >= MAX_IMAGES}
+                >
+                  {storageBusy ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    'Browse files'
+                  )}
                 </Button>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Supports {ACCEPTED_FILES_DESCRIPTION} up to 10MB each. Max {MAX_IMAGES} images.
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ACCEPTED_FILE_MIME_TYPES.join(',')}
+                  multiple
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {uploadedImages.length} of {MAX_IMAGES} images selected
+                </p>
               </div>
+
+              {uploadedImages.length > 0 && (
+                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {uploadedImages.map((image) => (
+                    <div key={image.path} className="relative aspect-square overflow-hidden rounded-lg border">
+                      <Image
+                        src={image.url}
+                        alt="Uploaded preview"
+                        fill
+                        className="object-cover"
+                      />
+                      <button
+                        type="button"
+                        className="absolute top-2 right-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+                        onClick={() => handleRemoveImage(image)}
+                        disabled={storageBusy}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || storageBusy}>
               {loading ? 'Creating Listing...' : 'Create Listing'}
             </Button>
           </form>
