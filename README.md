@@ -23,6 +23,26 @@ Image uploads for product listings rely on a Supabase Storage bucket. The fronte
 
 After the bucket exists, image uploads from the sell form will succeed. If uploads still fail, double-check the environment variables in `.env.local` for your Supabase URL, anon key, and storage bucket name.
 
+## Committing and pushing changes
+
+If you are developing locally and want to publish updates to the default branch (commonly named `main`), run the following commands from the project root:
+
+```bash
+# review the staged files before committing
+git status
+
+# add the files you have modified
+git add <file1> <file2>
+
+# create a descriptive commit message
+git commit -m "feat: summarize the change here"
+
+# send your commit to the remote repository
+git push origin main
+```
+
+Replace `<file1> <file2>` with the paths you modified and tailor the commit message to the work you completed. If your local branch name is not `main`, update the final `git push` command to match it (for example, `git push origin my-branch`).
+
 ## Features
 
 - Modern, responsive marketplace UI
